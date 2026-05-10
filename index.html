@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ma Super Caisse iPad</title>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        :root { --primary: #6a5acd; --bg: #f0f2f5; --card: #ffffff; --accent: #2ecc71; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        .container { max-width: 800px; margin: auto; }
+        
+        /* Grille de produits */
+        .grid-produits { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+            gap: 10px; 
+            margin-top: 15px; 
+        }
+        .item-bouton { 
+            background: white; border-radius: 12px; padding: 10px; text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; border: 2px solid transparent;
+        }
+        .item-bouton:active { transform: scale(0.95); border-color: var(--primary); }
+        .item-bouton img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; }
+        .item-bouton span { display: block; font-weight: bold; margin-top: 5px; font-size: 0.9rem; }
+
+        .section { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 15px; }
+        .status-bar { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; margin-bottom: 10px; }
+        
+        button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; margin: 5px 0; }
+        .btn-scan { background: #3498db; }
+        .btn-exit { background: #e74c3c; }
+
+        #video-container { display: none; width: 100%; max-width: 400px; margin: auto; position: relative; }
+        video { width: 100%; border-radius: 10px; }
+
+        .receipt { background: #fffbe6; border: 2px dashed #000; padding: 20px; font-family: monospace; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="section">
+        <div class="status-bar">
+            <span style="color: var(--accent);">💳 <span id="balanceDisplay">0</span> DH</span>
+            <span id="sessionStatus">Fermé</span>
+        </div>
+        <button id="sessionBtn" onclick="toggleSession()">OUVRIR LA CAISSE</button>
+    </div>
+
+    <div id="salesArea" style="display:none;">
+        <div class="section">
+            <h2>🛍️ Touche un produit ou scanne</h2>
+            
+            <button class="btn-scan" onclick="startScan()">📷 SCANNER CODE-BARRE</button>
+            <div id="video-container">
+                <video id="video"></video>
+                <button onclick="stopScan()" style="background:rgba(0,0,0,0.5)">Annuler</button>
+            </div>
+
+            <select id="paymentMethod" style="width:100%; padding:10px; margin:10px 0; border-radius:8px;">
+                <option value="carte">Paiement : Carte Magique</option>
+                <option value="especes">Paiement : Espèces</option>
+            </select>
+
+            <div id="gridProduits" class="grid-produits"></div>
+
+            <button class="btn-exit" onclick="endSession()" style="margin-top:20px;">SORTIR & TICKET</button>
+        </div>
+    </div>
+
+    <div id="receiptArea" class="section receipt">
+        <h3 style="text-align:center;">TICKET DE VENTE</h3>
+        <div id="receiptItems"></div>
+        <hr>
+        <p><strong>TOTAL : <span id="receiptTotal">0</span> DH</strong></p>
+        <button onclick="location.reload()" style="background:#333;">NOUVELLE VENTE</button>
+    </div>
+
+    <div class="section">
+        <h3>➕ Ajouter un article</h3>
+        <input type="text" id="pName" placeholder="Nom (ex: Nutella)" style="width:100%; padding:8px; margin:4px 0;">
+        <input type="number" id="pPrice" placeholder="Prix" style="width:100%; padding:8px; margin:4px 0;">
+        <input type="text" id="pCode" placeholder="Code-barre (à scanner ou taper)" style="width:100%; padding:8px; margin:4px 0;">
+        <input type="text" id="pImg" placeholder="Lien de la photo (ou laissez vide)" style="width:100%; padding:8px; margin:4px 0;">
+        <button onclick="addProduct()">ENREGISTRER</button>
+    </div>
+</div>
+
+<script>
+    let wallet = parseFloat(localStorage.getItem('wallet')) || 100;
+    let products = JSON.parse(localStorage.getItem('products')) || [];
+    let currentSession = [];
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+
+    function updateUI() {
+        document.getElementById('balanceDisplay').innerText = wallet.toFixed(2);
+        const grid = document.getElementById('gridProduits');
+        grid.innerHTML = '';
+        products.forEach(p => {
+            const imgUrl = p.img || 'https://via.placeholder.com/100?text=Produit';
+            grid.innerHTML += `
+                <div class="item-bouton" onclick="sellItem('${p.code}')">
+                    <img src="${imgUrl}">
+                    <span>${p.name}</span>
+                    <small>${p.price} DH</small>
+                </div>`;
+        });
+        localStorage.setItem('wallet', wallet);
+        localStorage.setItem('products', JSON.stringify(products));
+    }
+
+    function toggleSession() {
+        document.getElementById('salesArea').style.display = 'block';
+        document.getElementById('sessionBtn').style.display = 'none';
+        document.getElementById('sessionStatus').innerText = "Session Active";
+        updateUI();
+    }
+
+    function addProduct() {
+        const name = document.getElementById('pName').value;
+        const price = document.getElementById('pPrice').value;
+        const code = document.getElementById('pCode').value;
+        const img = document.getElementById('pImg').value;
+        if(name && price && code) {
+            products.push({name, price: parseFloat(price), code, img});
+            updateUI();
+            alert("Produit ajouté !");
+        }
+    }
+
+    function sellItem(code) {
+        const item = products.find(p => p.code === code);
+        const method = document.getElementById('paymentMethod').value;
+        if(item) {
+            if(method === 'carte' && wallet < item.price) {
+                alert("Pas assez d'argent sur la carte !");
+                return;
+            }
+            if(method === 'carte') wallet -= item.price;
+            currentSession.push(item);
+            alert("Ajouté : " + item.name);
+            updateUI();
+        }
+    }
+
+    // --- FONCTION SCANNER ---
+    function startScan() {
+        document.getElementById('video-container').style.display = 'block';
+        codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+            if (result) {
+                sellItem(result.text);
+                stopScan();
+            }
+        });
+    }
+
+    function stopScan() {
+        codeReader.reset();
+        document.getElementById('video-container').style.display = 'none';
+    }
+
+    function endSession() {
+        document.getElementById('salesArea').style.display = 'none';
+        const itemsDiv = document.getElementById('receiptItems');
+        let total = 0;
+        currentSession.forEach(item => {
+            total += item.price;
+            itemsDiv.innerHTML += `<div>${item.name} ... ${item.price} DH</div>`;
+        });
+        document.getElementById('receiptTotal').innerText = total.toFixed(2);
+        document.getElementById('receiptArea').style.display = 'block';
+    }
+
+    updateUI();
+</script>
+
+</body>
+</html>
