@@ -3,265 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Caisse Pro iPad - Gestion Totale</title>
+    <title>Caisse iPad Fix</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        :root { --primary: #6a5acd; --bg: #f8f9fa; --accent: #2ecc71; --danger: #ff7675; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        :root { --primary: #6a5acd; --bg: #f0f2f5; --accent: #2ecc71; --danger: #ff7675; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; flex-direction: row; }
         
-        .left-panel { flex: 1; padding: 20px; overflow-y: auto; border-right: 2px solid #ddd; }
-        .right-panel { width: 350px; background: white; padding: 20px; display: flex; flex-direction: column; box-shadow: -4px 0 10px rgba(0,0,0,0.05); }
+        /* Panneau gauche (Produits) */
+        .left-panel { flex: 1; padding: 15px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        /* Panneau droit (Panier) */
+        .right-panel { width: 300px; background: white; padding: 15px; display: flex; flex-direction: column; border-left: 2px solid #ddd; box-shadow: -2px 0 5px rgba(0,0,0,0.1); }
 
-        .grid-produits { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
-        .item-bouton { position: relative; background: white; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1); cursor: pointer; }
-        .item-bouton img { width: 100%; height: 75px; object-fit: cover; border-radius: 10px; background: #eee; }
+        .grid-produits { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .item-bouton { background: white; border-radius: 12px; padding: 8px; text-align: center; border: 1px solid #ddd; position: relative; }
+        .item-bouton img { width: 100%; height: 60px; object-fit: cover; border-radius: 8px; pointer-events: none; }
         
-        .delete-badge { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border-radius: 50%; width: 25px; height: 25px; display: none; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; }
+        .cart-list { flex: 1; overflow-y: auto; margin: 10px 0; border: 1px solid #eee; border-radius: 8px; padding: 5px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee; font-size: 14px; }
 
-        .cart-list { flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin: 10px 0; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f9f9f9; }
-
-        .total-section { font-size: 1.5rem; font-weight: bold; text-align: center; padding: 15px; background: #f0f0ff; border-radius: 10px; color: var(--primary); }
+        .total-box { font-size: 1.4rem; font-weight: bold; text-align: center; padding: 15px; background: #eef; border-radius: 10px; margin-bottom: 10px; }
         
-        button { border: none; border-radius: 10px; padding: 12px; font-weight: bold; cursor: pointer; margin: 5px 0; width: 100%; }
+        button { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; width: 100%; }
         .btn-scan { background: var(--primary); color: white; }
         .btn-pay { background: var(--accent); color: white; }
-        .btn-edit { background: #636e72; color: white; margin-bottom: 20px; }
+        .btn-del { background: var(--danger); color: white; width: 30px; padding: 5px; }
 
-        #modal-new, #modal-payment, #modal-card { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 20px; z-index: 100; box-shadow: 0 0 30px rgba(0,0,0,0.2); width: 85%; max-width: 400px; }
-        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 99; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        /* Modals */
+        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index: 1000; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; z-index: 1001; width: 85%; max-width: 350px; }
         
-        .card-row { display: flex; justify-content: space-between; align-items: center; background: #eee; padding: 8px; border-radius: 8px; margin-bottom: 5px; }
-
-        #video-container { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:black; z-index: 200; }
-        video { width: 100%; height: 80%; object-fit: cover; }
+        #video-container { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:black; z-index: 2000; }
+        video { width: 100%; height: 70%; object-fit: cover; }
     </style>
 </head>
 <body>
 
     <div class="left-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin:0;">📦 Catalogue</h2>
-            <button class="btn-edit" id="editBtn" onclick="toggleEditMode()" style="width: auto; padding: 8px 15px;">Modifier ⚙️</button>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Magasin</h2>
+            <button onclick="toggleEdit()" id="editBtn" style="width:auto; padding:5px 10px; background:#636e72; color:white;">⚙️ Modifier</button>
         </div>
-        
         <div id="gridProduits" class="grid-produits"></div>
-
-        <hr style="margin: 30px 0;">
-        
-        <h3>💳 Cartes Clients</h3>
+        <hr>
+        <h3>Cartes Clients</h3>
         <div id="cardsList"></div>
-        <button onclick="openModal('modal-card')">+ Créer une carte</button>
+        <button onclick="showModal('modal-card')" style="background:#555; color:white;">+ Ajouter Carte</button>
     </div>
 
     <div class="right-panel">
-        <h2 style="margin:0;">🛒 Panier</h2>
-        <button class="btn-scan" onclick="startScan()">📷 SCANNER PRODUIT</button>
-        
+        <h3>🛒 Mon Panier</h3>
+        <button class="btn-scan" onclick="startScan()">📷 SCANNER</button>
         <div id="cartDisplay" class="cart-list"></div>
-
-        <div class="total-section">
-            <span id="totalPrice">0.00</span> DH
-        </div>
-
-        <button class="btn-pay" onclick="openPayment()">PAYER</button>
-        <button style="background:var(--danger); color:white;" onclick="clearCart()">VIDER LE PANIER</button>
+        <div class="total-box"><span id="totalPrice">0</span> DH</div>
+        <button class="btn-pay" onclick="showModal('modal-pay')">PAYER</button>
+        <button onclick="clearCart()" style="background:#ff7675; color:white;">VIDER</button>
     </div>
 
-    <div class="overlay" id="overlay" onclick="closeModals()"></div>
+    <div class="overlay" id="overlay" onclick="closeAll()"></div>
 
-    <div id="modal-new">
-        <h2>✨ Nouveau Produit</h2>
-        <input type="text" id="newName" placeholder="Nom">
-        <input type="number" id="newPrice" placeholder="Prix">
+    <div id="modal-new" class="modal">
+        <h3>Nouveau Produit</h3>
+        <input type="text" id="newName" placeholder="Nom" style="width:100%; padding:10px; margin-bottom:10px;">
+        <input type="number" id="newPrice" placeholder="Prix" style="width:100%; padding:10px; margin-bottom:10px;">
         <input type="file" id="newFile" accept="image/*" capture="camera">
-        <button class="btn-pay" onclick="saveNewProduct()">ENREGISTRER</button>
+        <button class="btn-pay" onclick="saveProduct()" style="margin-top:10px;">ENREGISTRER</button>
     </div>
 
-    <div id="modal-payment">
-        <h2>💰 Paiement</h2>
-        <select id="payMode" onchange="togglePayView()">
+    <div id="modal-pay" class="modal">
+        <h3>Payer</h3>
+        <select id="payMode" onchange="updatePayView()" style="width:100%; padding:10px;">
             <option value="especes">Espèces 💵</option>
             <option value="carte">Carte Magique 💳</option>
         </select>
-        <div id="view-especes">
-            <input type="number" id="cashGiven" placeholder="Montant reçu">
+        <div id="pay-cash" style="margin-top:10px;">
+            <input type="number" id="cashIn" placeholder="Argent reçu" style="width:100%; padding:10px;">
         </div>
-        <div id="view-carte" style="display:none;">
-            <select id="selectCard"></select>
+        <div id="pay-card" style="display:none; margin-top:10px;">
+            <select id="cardSelect" style="width:100%; padding:10px;"></select>
         </div>
-        <button class="btn-pay" onclick="confirmPayment()" style="margin-top:20px;">VALIDER</button>
+        <button class="btn-pay" onclick="finishPayment()" style="margin-top:15px;">VALIDER</button>
     </div>
 
-    <div id="modal-card">
-        <h3>Nouvelle Carte</h3>
-        <input type="text" id="cardOwner" placeholder="Nom">
-        <input type="number" id="cardBalance" placeholder="Argent">
-        <button class="btn-pay" onclick="saveNewCard()">CRÉER</button>
+    <div id="modal-card" class="modal">
+        <h3>Créer Carte</h3>
+        <input type="text" id="cName" placeholder="Propriétaire" style="width:100%; padding:10px;">
+        <input type="number" id="cBal" placeholder="Solde" style="width:100%; padding:10px;">
+        <button class="btn-pay" onclick="saveCard()">CRÉER</button>
     </div>
 
     <div id="video-container">
         <video id="video"></video>
-        <button onclick="stopScan()" style="background:red; color:white; height:20%;">FERMER</button>
+        <button onclick="stopScan()" style="background:red; color:white; height:20%;">FERMER CAMERA</button>
     </div>
 
 <script>
     let products = JSON.parse(localStorage.getItem('products')) || [];
-    let cards = JSON.parse(localStorage.getItem('cards')) || [{name: "Client 1", balance: 100}];
+    let cards = JSON.parse(localStorage.getItem('cards')) || [{name: "Moi", balance: 100}];
     let cart = [];
-    let editMode = false;
-    let tempCode = "";
-    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let isEditing = false;
+    let currentCode = "";
+    const reader = new ZXing.BrowserMultiFormatReader();
 
     function updateUI() {
-        // Catalogue
         const grid = document.getElementById('gridProduits');
-        grid.innerHTML = '';
-        products.forEach((p, index) => {
-            grid.innerHTML += `
-                <div class="item-bouton" onclick="${editMode ? `deleteProduct(${index})` : `addToCart('${p.code}')`}">
-                    <div class="delete-badge" style="display:${editMode ? 'flex' : 'none'}">X</div>
-                    <img src="${p.img || ''}">
-                    <span>${p.name}</span><br><strong>${p.price} DH</strong>
-                </div>`;
-        });
-
-        // Cartes
-        const cardDiv = document.getElementById('cardsList');
-        cardDiv.innerHTML = cards.map((c, i) => `
-            <div class="card-row">
-                <span>📍 ${c.name}: <b>${c.balance.toFixed(2)} DH</b></span>
-                ${editMode ? `<button onclick="deleteCard(${i})" style="width:30px; background:red; padding:2px; margin:0;">X</button>` : ''}
+        grid.innerHTML = products.map((p, i) => `
+            <div class="item-bouton" onclick="${isEditing ? `delProd(${i})` : `addCart('${p.code}')`}">
+                ${isEditing ? '<div style="background:red; color:white; position:absolute; top:0; right:0; border-radius:50%; width:20px;">X</div>' : ''}
+                <img src="${p.img || ''}">
+                <div style="font-size:12px; font-weight:bold;">${p.name}</div>
+                <div style="font-size:11px;">${p.price} DH</div>
             </div>
         `).join('');
-        
-        // Panier
-        const cartDiv = document.getElementById('cartDisplay');
-        if(cart.length === 0) cartDiv.innerHTML = '<p style="color:grey; text-align:center;">Panier vide</p>';
-        else {
-            cartDiv.innerHTML = cart.map((item, index) => `
-                <div class="cart-item">
-                    <span>${item.name}</span>
-                    <span><b>${item.price} DH</b> <button onclick="removeFromCart(${index})" style="width:25px; height:25px; padding:0; background:var(--danger); color:white; border-radius:50%; margin-left:10px;">-</button></span>
-                </div>
-            `).join('');
-        }
 
-        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        const cList = document.getElementById('cardsList');
+        cList.innerHTML = cards.map((c, i) => `
+            <div style="display:flex; justify-content:space-between; background:#eee; margin:2px; padding:5px; border-radius:5px; font-size:13px;">
+                <span>${c.name}: ${c.balance.toFixed(2)} DH</span>
+                ${isEditing ? `<button onclick="delCard(${i})" class="btn-del">X</button>` : ''}
+            </div>
+        `).join('');
+
+        const cartDiv = document.getElementById('cartDisplay');
+        cartDiv.innerHTML = cart.map((item, i) => `
+            <div class="cart-item">
+                <span>${item.name}</span>
+                <span>${item.price} DH <button onclick="remCart(${i})" style="width:20px; background:red; color:white; border-radius:50%; border:none;">-</button></span>
+            </div>
+        `).join('');
+
+        const total = cart.reduce((s, i) => s + i.price, 0);
         document.getElementById('totalPrice').innerText = total.toFixed(2);
 
         localStorage.setItem('products', JSON.stringify(products));
         localStorage.setItem('cards', JSON.stringify(cards));
     }
 
-    function toggleEditMode() {
-        editMode = !editMode;
-        document.getElementById('editBtn').innerText = editMode ? "Terminer ✅" : "Modifier ⚙️";
-        document.getElementById('editBtn').style.background = editMode ? var(--accent) : "#636e72";
-        updateUI();
+    function addCart(code) {
+        const p = products.find(x => x.code === code);
+        if(p) { cart.push(p); updateUI(); }
     }
-
-    function deleteProduct(index) {
-        if(confirm("Supprimer ce produit du catalogue ?")) {
-            products.splice(index, 1);
-            updateUI();
-        }
-    }
-
-    function deleteCard(index) {
-        if(confirm("Supprimer cette carte ?")) {
-            cards.splice(index, 1);
-            updateUI();
-        }
-    }
-
-    function addToCart(code) {
-        const item = products.find(p => p.code === code);
-        if(item) {
-            cart.push(item);
-            new Audio('https://www.soundjay.com/buttons/beep-07a.mp3').play();
-            updateUI();
-        }
-    }
-
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        updateUI();
-    }
-
+    function remCart(i) { cart.splice(i, 1); updateUI(); }
     function clearCart() { cart = []; updateUI(); }
+    function toggleEdit() { isEditing = !isEditing; document.getElementById('editBtn').innerText = isEditing ? "Fin ✅" : "⚙️ Modifier"; updateUI(); }
+    function delProd(i) { products.splice(i, 1); updateUI(); }
+    function delCard(i) { cards.splice(i, 1); updateUI(); }
+
+    function showModal(id) {
+        document.getElementById('overlay').style.display = 'block';
+        document.getElementById(id).style.display = 'block';
+        if(id === 'modal-pay') {
+            document.getElementById('cardSelect').innerHTML = cards.map((c, i) => `<option value="${i}">${c.name} (${c.balance}DH)</option>`).join('');
+        }
+    }
+    function closeAll() {
+        document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none');
+    }
 
     function startScan() {
         document.getElementById('video-container').style.display = 'block';
-        codeReader.decodeFromVideoDevice(null, 'video', (result) => {
-            if (result) {
+        reader.decodeFromVideoDevice(null, 'video', (res) => {
+            if(res) {
                 stopScan();
-                const item = products.find(p => p.code === result.text);
-                if(item) addToCart(result.text);
-                else {
-                    tempCode = result.text;
-                    openModal('modal-new');
-                }
+                const p = products.find(x => x.code === res.text);
+                if(p) addCart(res.text);
+                else { currentCode = res.text; showModal('modal-new'); }
             }
         });
     }
+    function stopScan() { reader.reset(); document.getElementById('video-container').style.display = 'none'; }
 
-    function stopScan() { codeReader.reset(); document.getElementById('video-container').style.display = 'none'; }
-
-    function saveNewProduct() {
-        const name = document.getElementById('newName').value;
-        const price = parseFloat(document.getElementById('newPrice').value);
-        const file = document.getElementById('newFile').files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            products.push({ name, price, code: tempCode, img: e.target.result });
-            closeModals(); updateUI(); addToCart(tempCode);
+    function saveProduct() {
+        const n = document.getElementById('newName').value;
+        const p = parseFloat(document.getElementById('newPrice').value);
+        const f = document.getElementById('newFile').files[0];
+        if(!n || !p) return;
+        const r = new FileReader();
+        r.onload = (e) => {
+            products.push({name:n, price:p, code:currentCode, img:e.target.result});
+            closeAll(); updateUI(); addCart(currentCode);
         };
-        if(file) reader.readAsDataURL(file); 
-        else { products.push({ name, price, code: tempCode, img: '' }); closeModals(); updateUI(); addToCart(tempCode); }
+        if(f) r.readAsDataURL(f); else { products.push({name:n, price:p, code:currentCode, img:''}); closeAll(); updateUI(); addCart(currentCode); }
     }
 
-    function openModal(id) {
-        document.getElementById(id).style.display = 'block';
-        document.getElementById('overlay').style.display = 'block';
-        if(id === 'modal-payment') {
-            document.getElementById('selectCard').innerHTML = cards.map((c, i) => `<option value="${i}">${c.name} (${c.balance} DH)</option>`).join('');
-        }
+    function updatePayView() {
+        const m = document.getElementById('payMode').value;
+        document.getElementById('pay-cash').style.display = m==='especes'?'block':'none';
+        document.getElementById('pay-card').style.display = m==='carte'?'block':'none';
     }
 
-    function closeModals() {
-        document.querySelectorAll('#modal-new, #modal-payment, #modal-card, .overlay').forEach(el => el.style.display = 'none');
-    }
-
-    function togglePayView() {
-        const mode = document.getElementById('payMode').value;
-        document.getElementById('view-especes').style.display = mode === 'especes' ? 'block' : 'none';
-        document.getElementById('view-carte').style.display = mode === 'carte' ? 'block' : 'none';
-    }
-
-    function confirmPayment() {
-        const total = cart.reduce((sum, item) => sum + item.price, 0);
-        const mode = document.getElementById('payMode').value;
-        if(mode === 'especes') {
-            const given = parseFloat(document.getElementById('cashGiven').value);
-            if(given < total) return alert("Pas assez d'argent reçu !");
-            alert("Paiement Espèces OK. Rendu : " + (given - total).toFixed(2) + " DH");
+    function finishPayment() {
+        const total = cart.reduce((s, i) => s + i.price, 0);
+        const m = document.getElementById('payMode').value;
+        if(m==='especes') {
+            const gin = parseFloat(document.getElementById('cashIn').value);
+            if(gin < total) return alert("Pas assez d'argent !");
+            alert("Rendre : " + (gin-total).toFixed(2) + " DH");
         } else {
-            const i = document.getElementById('selectCard').value;
-            if(cards[i].balance < total) return alert("Solde insuffisant !");
-            cards[i].balance -= total;
+            const idx = document.getElementById('cardSelect').value;
+            if(cards[idx].balance < total) return alert("Solde insuffisant !");
+            cards[idx].balance -= total;
         }
-        clearCart(); closeModals();
+        clearCart(); closeAll(); updateUI();
     }
 
-    function saveNewCard() {
-        const n = document.getElementById('cardOwner').value;
-        const b = parseFloat(document.getElementById('cardBalance').value);
-        if(n) { cards.push({name: n, balance: b}); closeModals(); updateUI(); }
+    function saveCard() {
+        const n = document.getElementById('cName').value;
+        const b = parseFloat(document.getElementById('cBal').value);
+        if(n) { cards.push({name:n, balance:b}); closeAll(); updateUI(); }
     }
-
-    function openPayment() { if(cart.length > 0) openModal('modal-payment'); }
 
     updateUI();
 </script>
