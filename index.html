@@ -3,203 +3,265 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Caisse Auto-Apprenante</title>
+    <title>Caisse Pro iPad - Gestion Totale</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        :root { --primary: #6a5acd; --bg: #f0f2f5; --card: #ffffff; --accent: #2ecc71; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
-        .container { max-width: 800px; margin: auto; }
+        :root { --primary: #6a5acd; --bg: #f8f9fa; --accent: #2ecc71; --danger: #ff7675; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
-        /* Grille de produits */
-        .grid-produits { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); 
-            gap: 10px; margin-top: 15px; 
-        }
-        .item-bouton { 
-            background: white; border-radius: 12px; padding: 10px; text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; border: 2px solid transparent;
-        }
-        .item-bouton img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; background: #eee; }
-        .item-bouton span { display: block; font-weight: bold; margin-top: 5px; font-size: 0.8rem; }
+        .left-panel { flex: 1; padding: 20px; overflow-y: auto; border-right: 2px solid #ddd; }
+        .right-panel { width: 350px; background: white; padding: 20px; display: flex; flex-direction: column; box-shadow: -4px 0 10px rgba(0,0,0,0.05); }
 
-        .section { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 15px; }
-        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 100%; margin: 5px 0; font-size: 1rem; }
+        .grid-produits { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
+        .item-bouton { position: relative; background: white; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1); cursor: pointer; }
+        .item-bouton img { width: 100%; height: 75px; object-fit: cover; border-radius: 10px; background: #eee; }
         
-        /* Scanner & Preview Photo */
-        #video-container { display: none; width: 100%; background: #000; border-radius: 15px; overflow: hidden; position: relative; }
-        video { width: 100%; display: block; }
+        .delete-badge { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border-radius: 50%; width: 25px; height: 25px; display: none; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; }
+
+        .cart-list { flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin: 10px 0; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f9f9f9; }
+
+        .total-section { font-size: 1.5rem; font-weight: bold; text-align: center; padding: 15px; background: #f0f0ff; border-radius: 10px; color: var(--primary); }
         
-        /* Modal Nouveau Produit */
-        #modal-new { 
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: white; padding: 20px; border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            width: 90%; max-width: 400px; z-index: 100;
-        }
-        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index: 99; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { border: none; border-radius: 10px; padding: 12px; font-weight: bold; cursor: pointer; margin: 5px 0; width: 100%; }
+        .btn-scan { background: var(--primary); color: white; }
+        .btn-pay { background: var(--accent); color: white; }
+        .btn-edit { background: #636e72; color: white; margin-bottom: 20px; }
+
+        #modal-new, #modal-payment, #modal-card { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 20px; z-index: 100; box-shadow: 0 0 30px rgba(0,0,0,0.2); width: 85%; max-width: 400px; }
+        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 99; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         
-        .receipt { background: #fffbe6; border: 2px dashed #000; padding: 20px; font-family: monospace; display: none; }
+        .card-row { display: flex; justify-content: space-between; align-items: center; background: #eee; padding: 8px; border-radius: 8px; margin-bottom: 5px; }
+
+        #video-container { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:black; z-index: 200; }
+        video { width: 100%; height: 80%; object-fit: cover; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="section">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h1 style="font-size:1.2rem; margin:0;">🛒 MA CAISSE RAPIDE</h1>
-            <span style="font-weight:bold; color:var(--accent);">💳 <span id="balanceDisplay">0</span> DH</span>
+    <div class="left-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin:0;">📦 Catalogue</h2>
+            <button class="btn-edit" id="editBtn" onclick="toggleEditMode()" style="width: auto; padding: 8px 15px;">Modifier ⚙️</button>
         </div>
-        <button id="mainBtn" onclick="startScan()" style="background:var(--accent);">📷 SCANNER UN PRODUIT</button>
-        <button class="btn-exit" onclick="endSession()" style="background:#e74c3c;">FINIR LA VENTE (TICKET)</button>
+        
+        <div id="gridProduits" class="grid-produits"></div>
+
+        <hr style="margin: 30px 0;">
+        
+        <h3>💳 Cartes Clients</h3>
+        <div id="cardsList"></div>
+        <button onclick="openModal('modal-card')">+ Créer une carte</button>
+    </div>
+
+    <div class="right-panel">
+        <h2 style="margin:0;">🛒 Panier</h2>
+        <button class="btn-scan" onclick="startScan()">📷 SCANNER PRODUIT</button>
+        
+        <div id="cartDisplay" class="cart-list"></div>
+
+        <div class="total-section">
+            <span id="totalPrice">0.00</span> DH
+        </div>
+
+        <button class="btn-pay" onclick="openPayment()">PAYER</button>
+        <button style="background:var(--danger); color:white;" onclick="clearCart()">VIDER LE PANIER</button>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="closeModals()"></div>
+
+    <div id="modal-new">
+        <h2>✨ Nouveau Produit</h2>
+        <input type="text" id="newName" placeholder="Nom">
+        <input type="number" id="newPrice" placeholder="Prix">
+        <input type="file" id="newFile" accept="image/*" capture="camera">
+        <button class="btn-pay" onclick="saveNewProduct()">ENREGISTRER</button>
+    </div>
+
+    <div id="modal-payment">
+        <h2>💰 Paiement</h2>
+        <select id="payMode" onchange="togglePayView()">
+            <option value="especes">Espèces 💵</option>
+            <option value="carte">Carte Magique 💳</option>
+        </select>
+        <div id="view-especes">
+            <input type="number" id="cashGiven" placeholder="Montant reçu">
+        </div>
+        <div id="view-carte" style="display:none;">
+            <select id="selectCard"></select>
+        </div>
+        <button class="btn-pay" onclick="confirmPayment()" style="margin-top:20px;">VALIDER</button>
+    </div>
+
+    <div id="modal-card">
+        <h3>Nouvelle Carte</h3>
+        <input type="text" id="cardOwner" placeholder="Nom">
+        <input type="number" id="cardBalance" placeholder="Argent">
+        <button class="btn-pay" onclick="saveNewCard()">CRÉER</button>
     </div>
 
     <div id="video-container">
         <video id="video"></video>
-        <button onclick="stopScan()" style="background:rgba(231, 76, 60, 0.8); position:absolute; bottom:10px; width:80%; left:10%;">Annuler</button>
+        <button onclick="stopScan()" style="background:red; color:white; height:20%;">FERMER</button>
     </div>
-
-    <div class="section">
-        <select id="paymentMethod" style="width:100%; padding:10px; border-radius:8px;">
-            <option value="especes">Paiement : Espèces 💵</option>
-            <option value="carte">Paiement : Carte Magique 💳</option>
-        </select>
-        <div id="gridProduits" class="grid-produits"></div>
-    </div>
-
-    <div id="receiptArea" class="section receipt">
-        <h3 style="text-align:center;">TICKET DE VENTE</h3>
-        <div id="receiptItems"></div>
-        <hr>
-        <p><strong>TOTAL : <span id="receiptTotal">0</span> DH</strong></p>
-        <button onclick="location.reload()" style="background:#333;">NOUVELLE SESSION</button>
-    </div>
-</div>
-
-<div class="overlay" id="overlay"></div>
-<div id="modal-new">
-    <h2 style="margin-top:0; color:var(--primary);">✨ Nouveau Produit !</h2>
-    <p style="font-size:0.8rem; color:grey;">Code détecté : <span id="newCodeDisplay"></span></p>
-    
-    <input type="text" id="newName" placeholder="Nom de l'objet (ex: Chips)">
-    <input type="number" id="newPrice" placeholder="Prix (ex: 15)">
-    
-    <p style="font-size:0.8rem;">Prendre en photo :</p>
-    <input type="file" id="newFile" accept="image/*" capture="camera" style="border:none;">
-
-    <button onclick="saveNewProduct()">ENREGISTRER ET AJOUTER</button>
-</div>
 
 <script>
-    let wallet = parseFloat(localStorage.getItem('wallet')) || 500;
     let products = JSON.parse(localStorage.getItem('products')) || [];
-    let currentSession = [];
+    let cards = JSON.parse(localStorage.getItem('cards')) || [{name: "Client 1", balance: 100}];
+    let cart = [];
+    let editMode = false;
     let tempCode = "";
     const codeReader = new ZXing.BrowserMultiFormatReader();
 
     function updateUI() {
-        document.getElementById('balanceDisplay').innerText = wallet.toFixed(2);
+        // Catalogue
         const grid = document.getElementById('gridProduits');
         grid.innerHTML = '';
-        products.forEach(p => {
+        products.forEach((p, index) => {
             grid.innerHTML += `
-                <div class="item-bouton" onclick="sellItem('${p.code}')">
+                <div class="item-bouton" onclick="${editMode ? `deleteProduct(${index})` : `addToCart('${p.code}')`}">
+                    <div class="delete-badge" style="display:${editMode ? 'flex' : 'none'}">X</div>
                     <img src="${p.img || ''}">
-                    <span>${p.name}</span>
-                    <small>${p.price} DH</small>
+                    <span>${p.name}</span><br><strong>${p.price} DH</strong>
                 </div>`;
         });
-        localStorage.setItem('wallet', wallet);
+
+        // Cartes
+        const cardDiv = document.getElementById('cardsList');
+        cardDiv.innerHTML = cards.map((c, i) => `
+            <div class="card-row">
+                <span>📍 ${c.name}: <b>${c.balance.toFixed(2)} DH</b></span>
+                ${editMode ? `<button onclick="deleteCard(${i})" style="width:30px; background:red; padding:2px; margin:0;">X</button>` : ''}
+            </div>
+        `).join('');
+        
+        // Panier
+        const cartDiv = document.getElementById('cartDisplay');
+        if(cart.length === 0) cartDiv.innerHTML = '<p style="color:grey; text-align:center;">Panier vide</p>';
+        else {
+            cartDiv.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <span>${item.name}</span>
+                    <span><b>${item.price} DH</b> <button onclick="removeFromCart(${index})" style="width:25px; height:25px; padding:0; background:var(--danger); color:white; border-radius:50%; margin-left:10px;">-</button></span>
+                </div>
+            `).join('');
+        }
+
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        document.getElementById('totalPrice').innerText = total.toFixed(2);
+
         localStorage.setItem('products', JSON.stringify(products));
+        localStorage.setItem('cards', JSON.stringify(cards));
     }
 
-    function startScan() {
-        document.getElementById('video-container').style.display = 'block';
-        codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-            if (result) {
-                stopScan();
-                handleScannedCode(result.text);
-            }
-        });
-    }
-
-    function stopScan() {
-        codeReader.reset();
-        document.getElementById('video-container').style.display = 'none';
-    }
-
-    function handleScannedCode(code) {
-        const item = products.find(p => p.code === code);
-        if (item) {
-            sellItem(code);
-        } else {
-            // C'est un nouveau produit !
-            tempCode = code;
-            document.getElementById('newCodeDisplay').innerText = code;
-            document.getElementById('overlay').style.display = 'block';
-            document.getElementById('modal-new').style.display = 'block';
-        }
-    }
-
-    function saveNewProduct() {
-        const name = document.getElementById('newName').value || "Produit Inconnu";
-        const price = parseFloat(document.getElementById('newPrice').value) || 0;
-        const fileInput = document.getElementById('newFile');
-        
-        let imgBase64 = "";
-        
-        if (fileInput.files && fileInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                imgBase64 = e.target.result;
-                finalizeProduct(name, price, imgBase64);
-            }
-            reader.readAsDataURL(fileInput.files[0]);
-        } else {
-            finalizeProduct(name, price, "");
-        }
-    }
-
-    function finalizeProduct(name, price, img) {
-        products.push({ name, price, code: tempCode, img });
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('modal-new').style.display = 'none';
-        
-        // On réinitialise le formulaire
-        document.getElementById('newName').value = "";
-        document.getElementById('newPrice').value = "";
-        
+    function toggleEditMode() {
+        editMode = !editMode;
+        document.getElementById('editBtn').innerText = editMode ? "Terminer ✅" : "Modifier ⚙️";
+        document.getElementById('editBtn').style.background = editMode ? var(--accent) : "#636e72";
         updateUI();
-        sellItem(tempCode); // On l'ajoute direct à la vente
     }
 
-    function sellItem(code) {
-        const item = products.find(p => p.code === code);
-        const method = document.getElementById('paymentMethod').value;
-        if(item) {
-            if(method === 'carte' && wallet < item.price) {
-                alert("Fond insuffisants !"); return;
-            }
-            if(method === 'carte') wallet -= item.price;
-            currentSession.push(item);
-            // Petit son de bip (optionnel)
-            const audio = new Audio('https://www.soundjay.com/buttons/beep-07a.mp3');
-            audio.play();
+    function deleteProduct(index) {
+        if(confirm("Supprimer ce produit du catalogue ?")) {
+            products.splice(index, 1);
             updateUI();
         }
     }
 
-    function endSession() {
-        if(currentSession.length === 0) return alert("Rien n'a été vendu !");
-        document.getElementById('receiptItems').innerHTML = '';
-        let total = 0;
-        currentSession.forEach(item => {
-            total += item.price;
-            document.getElementById('receiptItems').innerHTML += `<div style="display:flex; justify-content:space-between;"><span>${item.name}</span><span>${item.price} DH</span></div>`;
-        });
-        document.getElementById('receiptTotal').innerText = total.toFixed(2);
-        document.getElementById('receiptArea').style.display = 'block';
+    function deleteCard(index) {
+        if(confirm("Supprimer cette carte ?")) {
+            cards.splice(index, 1);
+            updateUI();
+        }
     }
+
+    function addToCart(code) {
+        const item = products.find(p => p.code === code);
+        if(item) {
+            cart.push(item);
+            new Audio('https://www.soundjay.com/buttons/beep-07a.mp3').play();
+            updateUI();
+        }
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        updateUI();
+    }
+
+    function clearCart() { cart = []; updateUI(); }
+
+    function startScan() {
+        document.getElementById('video-container').style.display = 'block';
+        codeReader.decodeFromVideoDevice(null, 'video', (result) => {
+            if (result) {
+                stopScan();
+                const item = products.find(p => p.code === result.text);
+                if(item) addToCart(result.text);
+                else {
+                    tempCode = result.text;
+                    openModal('modal-new');
+                }
+            }
+        });
+    }
+
+    function stopScan() { codeReader.reset(); document.getElementById('video-container').style.display = 'none'; }
+
+    function saveNewProduct() {
+        const name = document.getElementById('newName').value;
+        const price = parseFloat(document.getElementById('newPrice').value);
+        const file = document.getElementById('newFile').files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            products.push({ name, price, code: tempCode, img: e.target.result });
+            closeModals(); updateUI(); addToCart(tempCode);
+        };
+        if(file) reader.readAsDataURL(file); 
+        else { products.push({ name, price, code: tempCode, img: '' }); closeModals(); updateUI(); addToCart(tempCode); }
+    }
+
+    function openModal(id) {
+        document.getElementById(id).style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+        if(id === 'modal-payment') {
+            document.getElementById('selectCard').innerHTML = cards.map((c, i) => `<option value="${i}">${c.name} (${c.balance} DH)</option>`).join('');
+        }
+    }
+
+    function closeModals() {
+        document.querySelectorAll('#modal-new, #modal-payment, #modal-card, .overlay').forEach(el => el.style.display = 'none');
+    }
+
+    function togglePayView() {
+        const mode = document.getElementById('payMode').value;
+        document.getElementById('view-especes').style.display = mode === 'especes' ? 'block' : 'none';
+        document.getElementById('view-carte').style.display = mode === 'carte' ? 'block' : 'none';
+    }
+
+    function confirmPayment() {
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        const mode = document.getElementById('payMode').value;
+        if(mode === 'especes') {
+            const given = parseFloat(document.getElementById('cashGiven').value);
+            if(given < total) return alert("Pas assez d'argent reçu !");
+            alert("Paiement Espèces OK. Rendu : " + (given - total).toFixed(2) + " DH");
+        } else {
+            const i = document.getElementById('selectCard').value;
+            if(cards[i].balance < total) return alert("Solde insuffisant !");
+            cards[i].balance -= total;
+        }
+        clearCart(); closeModals();
+    }
+
+    function saveNewCard() {
+        const n = document.getElementById('cardOwner').value;
+        const b = parseFloat(document.getElementById('cardBalance').value);
+        if(n) { cards.push({name: n, balance: b}); closeModals(); updateUI(); }
+    }
+
+    function openPayment() { if(cart.length > 0) openModal('modal-payment'); }
 
     updateUI();
 </script>
