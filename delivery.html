@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Delivery</title><script src="nano-core.js"></script></head>
+<body>
+    <h1>Nano Delivery</h1>
+    <div id="c"></div>
+    <script>
+        fetch(`${SUPABASE_URL}/rest/v1/commandes?ville_name=eq.${Nano.user.ville_name}`, {headers:{"apikey":SUPABASE_KEY}})
+        .then(r=>r.json()).then(d => {
+            document.getElementById('c').innerHTML = d.map(c => 
+                `<p>${c.client} a commandé : ${c.produit} (${c.statut})</p>`).join('');
+        });
+    </script>
+</body>
+</html>
