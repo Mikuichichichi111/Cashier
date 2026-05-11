@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Market</title><script src="nano-core.js"></script></head>
+<body>
+    <h1>Marketplace</h1>
+    <div id="p"></div>
+    <script>
+        fetch(`${SUPABASE_URL}/rest/v1/produits?ville_name=eq.${Nano.user.ville_name}`, {headers:{"apikey":SUPABASE_KEY}})
+        .then(r=>r.json()).then(d => {
+            document.getElementById('p').innerHTML = d.map(p => 
+                `<p>${p.nom} - ${p.prix} <button onclick="commander('${p.nom}', ${p.prix})">Commander</button></p>`).join('');
+        });
+
+        async function commander(nom, prix) {
+            await fetch(`${SUPABASE_URL}/rest/v1/commandes`, {
+                method: 'POST',
+                headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+                body: JSON.stringify({ ville_name: Nano.user.ville_name, client: Nano.user.username, produit: nom, prix: prix })
+            });
+            alert("Commande envoyée !");
+        }
+    </script>
+</body>
+</html>
