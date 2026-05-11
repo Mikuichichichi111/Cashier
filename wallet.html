@@ -3,58 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Wallet</title>
+    <title>Nano Wallet</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        body { font-family: sans-serif; background: #6a5acd; color: white; text-align: center; padding: 20px; margin: 0; }
-        .card { background: rgba(255,255,255,0.2); padding: 30px; border-radius: 25px; border: 2px solid white; margin-top: 50px; }
-        .balance { font-size: 3rem; font-weight: bold; margin: 20px 0; }
-        button { background: white; color: #6a5acd; border: none; padding: 15px 30px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        #video-container { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:black; }
+        body { font-family: sans-serif; background: #6a5acd; color: white; text-align: center; margin: 0; padding: 20px; }
+        .box { background: rgba(255,255,255,0.15); border: 2px solid white; padding: 40px; border-radius: 30px; margin-top: 50px; backdrop-filter: blur(10px); }
+        .val { font-size: 4rem; font-weight: bold; margin: 20px 0; }
+        button { background: white; color: #6a5acd; border: none; padding: 20px; border-radius: 15px; font-weight: bold; width: 100%; font-size: 18px; }
+        #v-cont { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:black; }
         video { width: 100%; height: 80%; object-fit: cover; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>SOLDE NANO</h2>
-        <div class="balance"><span id="solde">...</span> N</div>
-        <button onclick="startScan()">📷 SCANNER QR PAIEMENT</button>
+    <div class="box">
+        <h2>MON SOLDE</h2>
+        <div class="val"><span id="s">...</span> N</div>
+        <button onclick="startS()">📷 SCANNER POUR PAYER</button>
     </div>
 
-    <div id="video-container">
+    <div id="v-cont">
         <video id="video"></video>
-        <button onclick="stopScan()" style="background:red; color:white; width:100%; height:20%;">FERMER</button>
+        <button onclick="stopS()" style="background:red; color:white; width:100%; height:20%;">FERMER</button>
     </div>
 
 <script>
-    const URL = "https://mitepoyvwxfrffwqgyxb.supabase.co/rest/v1";
-    const KEY = "Sb_publishable_uCSvxjc-yJIULaaAMJcNpg_J2zwiect";
-    const reader = new ZXing.BrowserMultiFormatReader();
+    const U = "https://mitepoyvwxfrffwqgyxb.supabase.co/rest/v1";
+    const K = "Sb_publishable_uCSvxjc-yJIULaaAMJcNpg_J2zwiect";
+    const rd = new ZXing.BrowserMultiFormatReader();
 
-    async function updateSolde() {
-        const res = await fetch(`${URL}/cards?name=eq.Noah`, { headers: { "apikey": KEY } });
-        const data = await res.json();
-        if(data[0]) document.getElementById('solde').innerText = data[0].balance;
+    async function sync() {
+        const r = await fetch(`${U}/cards?name=eq.Noah`, { headers: { "apikey": K } });
+        const d = await r.json();
+        if(d[0]) document.getElementById('s').innerText = d[0].balance;
     }
 
-    function startScan() {
-        document.getElementById('video-container').style.display = 'block';
-        reader.decodeFromVideoDevice(null, 'video', async (res) => {
-            if(res) {
-                stopScan();
-                // Ici, on imagine que le QR contient le montant à payer
-                const montant = parseFloat(res.text);
-                alert("Vous allez payer " + montant + " N");
-                // Logique de paiement...
-            }
+    function startS() {
+        document.getElementById('v-cont').style.display = 'block';
+        rd.decodeFromVideoDevice(null, 'video', (res) => {
+            if(res) { stopS(); alert("Demande de paiement reçue : " + res.text + " N"); }
         });
     }
+    function stopS() { rd.reset(); document.getElementById('v-cont').style.display = 'none'; }
 
-    function stopScan() { reader.reset(); document.getElementById('video-container').style.display = 'none'; }
-
-    updateSolde();
-    setInterval(updateSolde, 3000); // Sync auto toutes les 3s
+    sync();
+    setInterval(sync, 2000);
 </script>
 </body>
 </html>
